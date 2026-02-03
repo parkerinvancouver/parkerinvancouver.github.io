@@ -1,26 +1,72 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { profile } from './data'
+
+const formatTime = (date = new Date()) =>
+  date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+
+const createUserMessage = (content) => ({
+  role: 'user',
+  type: 'text',
+  content,
+  time: formatTime(),
+})
+
+const createAssistantTextMessage = (content) => ({
+  role: 'assistant',
+  type: 'text',
+  content,
+  time: formatTime(),
+})
+
+const createAssistantCardMessage = (response) => ({
+  role: 'assistant',
+  type: 'card',
+  ...response,
+  time: formatTime(),
+})
 
 function App() {
   const [input, setInput] = useState('')
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState(() => [
+    createAssistantTextMessage(profile.assistant.greeting),
+  ])
+  const [isTyping, setIsTyping] = useState(false)
+  const typingTimerRef = useRef(null)
+  const messagesEndRef = useRef(null)
 
-  const handleAsk = (question) => {
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) {
+        clearTimeout(typingTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isTyping])
+
+  const handleAsk = (question, overrideResponse = null) => {
+    if (isTyping) return
+
     const trimmed = question.trim()
     if (!trimmed) return
+
+    setMessages((prev) => [...prev, createUserMessage(trimmed)])
+    setInput('')
+    setIsTyping(true)
 
     const normalized = trimmed.toLowerCase()
     const match = profile.answers.find(
       (item) => item.question.toLowerCase() === normalized
     )
-    const response = match ? match.response : profile.defaultResponse
+    const response = overrideResponse ?? (match ? match.response : profile.defaultResponse)
+    const delay = Math.min(1600, 600 + trimmed.length * 18)
 
-    setMessages((prev) => [
-      ...prev,
-      { role: 'user', content: trimmed },
-      { role: 'assistant', ...response },
-    ])
-    setInput('')
+    typingTimerRef.current = setTimeout(() => {
+      setMessages((prev) => [...prev, createAssistantCardMessage(response)])
+      setIsTyping(false)
+    }, delay)
   }
 
   return (
@@ -65,30 +111,56 @@ function App() {
           <input
             className="input-field"
             type="text"
-            placeholder={profile.inputPlaceholder}
+            placeholder={isTyping ? 'Assistant is typing…' : profile.inputPlaceholder}
             value={input}
             onChange={(event) => setInput(event.target.value)}
+            disabled={isTyping}
           />
           <div className="input-actions">
             <button className="icon-btn" type="button" aria-label="Voice">
               <IconMic />
             </button>
-            <button className="send-btn" type="submit" aria-label="Send">
+            <button
+              className="send-btn"
+              type="submit"
+              aria-label="Send"
+              disabled={isTyping || !input.trim()}
+            >
               <IconArrow />
             </button>
           </div>
         </form>
 
-        {messages.length > 0 && (
-          <div className="messages">
-            {messages.map((message, index) => (
-              <div
-                key={`${message.role}-${index}`}
-                className={`message message-${message.role}`}
-              >
-                {message.role === 'user' ? (
+        <div className="messages">
+          {messages.map((message, index) => (
+            <div
+              key={`${message.role}-${index}`}
+              className={`message message-${message.role}`}
+            >
+              {message.role === 'assistant' && (
+                <div className="assistant-avatar">
+                  {profile.assistant.initials}
+                </div>
+              )}
+              <div className="message-body">
+                {message.role === 'assistant' && (
+                  <div className="message-meta">
+                    <span className="message-author">
+                      {profile.assistant.name}
+                    </span>
+                    <span className="message-time">{message.time}</span>
+                  </div>
+                )}
+
+                {message.role === 'user' && (
                   <div className="message-bubble">{message.content}</div>
-                ) : (
+                )}
+
+                {message.role === 'assistant' && message.type === 'text' && (
+                  <div className="assistant-bubble">{message.content}</div>
+                )}
+
+                {message.role === 'assistant' && message.type === 'card' && (
                   <div className="message-card">
                     <p className="message-title">{message.title}</p>
                     {message.summary && (
@@ -106,10 +178,49 @@ function App() {
                     ))}
                   </div>
                 )}
+
+                {message.role === 'user' && (
+                  <div className="message-time message-time-user">
+                    {message.time}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+
+          {isTyping && (
+            <div className="message message-assistant">
+              <div className="assistant-avatar">{profile.assistant.initials}</div>
+              <div className="message-body">
+                <div className="message-meta">
+                  <span className="message-author">
+                    {profile.assistant.name}
+                  </span>
+                  <span className="message-time">typing…</span>
+                </div>
+                <div className="typing-bubble" aria-hidden="true">
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="actions">
+          <button
+            className="action-btn"
+            type="button"
+            onClick={() => handleAsk(profile.resumeActionLabel, profile.fullResume)}
+            disabled={isTyping}
+          >
+            <IconDocument />
+            <span>{profile.resumeActionLabel}</span>
+          </button>
+        </div>
 
         <div className="chips">
           {profile.quickQuestions.map((question) => (
@@ -118,6 +229,7 @@ function App() {
               key={question}
               type="button"
               onClick={() => handleAsk(question)}
+              disabled={isTyping}
             >
               <IconArrowUpSmall />
               <span>{question}</span>
@@ -208,6 +320,17 @@ function IconChevron() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M7 10l5 5 5-5" />
+    </svg>
+  )
+}
+
+function IconDocument() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 3h8l4 4v14H6z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6" />
+      <path d="M9 17h6" />
     </svg>
   )
 }
