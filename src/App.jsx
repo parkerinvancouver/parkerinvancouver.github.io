@@ -117,9 +117,6 @@ function App() {
             disabled={isTyping}
           />
           <div className="input-actions">
-            <button className="icon-btn" type="button" aria-label="Voice">
-              <IconMic />
-            </button>
             <button
               className="send-btn"
               type="submit"
@@ -274,17 +271,6 @@ function IconEdit() {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 16.5V20h3.5L19 8.5l-3.5-3.5L4 16.5z" />
       <path d="M14.5 5L19 9.5" />
-    </svg>
-  )
-}
-
-function IconMic() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="9" y="4" width="6" height="10" rx="3" />
-      <path d="M6 11a6 6 0 0 0 12 0" />
-      <path d="M12 17v3" />
-      <path d="M9 20h6" />
     </svg>
   )
 }

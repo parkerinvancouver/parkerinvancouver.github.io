@@ -4,7 +4,7 @@ export const profile = {
   tagline: "Ask me anything about Parker's BA work, projects, and background.",
   inputPlaceholder: 'What would you like to know about Parker?',
   assistant: {
-    name: "Parker's Resume Assistant",
+    name: 'Resume Assistant',
     initials: 'PR',
     status: 'Online',
     greeting:
